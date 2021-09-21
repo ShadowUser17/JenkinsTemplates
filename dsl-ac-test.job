@@ -1,0 +1,15 @@
+def job_prefix = "test-dsl"
+def job_count = 3
+
+for(count = 1; count <= job_count; count++) {
+    pipelineJob("${job_prefix}-${count}") {
+        parameters {
+            activeChoiceParam("ScriptItems") {
+                groovyScript {
+                    script(readFileFromWorkspace("./params.txt"))
+                    fallbackScript("return []")
+                }
+            }
+        }
+    }
+}
