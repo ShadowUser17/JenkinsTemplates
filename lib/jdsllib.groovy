@@ -1,8 +1,16 @@
-package org.jdsllib
-
 void setDirs(List dirs) {
     for(dir_item in dirs) {
         folder(dir_item)
+    }
+}
+
+// sparam_list = [[param_name, param_default, param_descr], ...]
+void setStringParams(def job_item, List sparam_list) {
+    job_item.parameters {
+        for(sparam_item in sparam_list) {
+            def(param_name, param_default, param_descr) = sparam_item
+            stringParam(param_name, param_default, param_descr)
+        }
     }
 }
 
@@ -103,6 +111,3 @@ void setPipelineScript(def job_item, String pp_script = "") {
         }
     }
 }
-
-
-return this
