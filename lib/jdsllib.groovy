@@ -103,11 +103,15 @@ void setGenericTrigger(def job_item, List gvars_list, String token_str, String t
 }
 
 
-void setPipelineScript(def job_item, String pp_script = "") {
+def setPipelineJob(String job_name, String pp_script = "") {
+    def job_item = pipelineJob(job_name)
+
     job_item.definition {
         cps {
             script(pp_script)
             sandbox()
         }
     }
+
+    return job_item
 }
