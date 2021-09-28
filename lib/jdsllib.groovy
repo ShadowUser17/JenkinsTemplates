@@ -14,39 +14,43 @@ void setStringParams(def job_item, List sparam_list) {
     }
 }
 
+// param_list = [[param_name, param_type, param_script, param_fallback], ...]
+void setActiveChoiceParams(def job_item, List param_list) {
+    for(param_item in param_list) {
+        def(param_name, param_type, param_script, param_fallback) = param_item
 
-void setActiveChoiceParam(def job_item, String param_name, String param_type, String param_script = "", String param_fallback = "") {
-    switch(param_type) {
-        case "SINGLE_SELECT":
-        case  "MULTI_SELECT":
-        case      "CHECKBOX":
-        case         "RADIO":
-            job_item.parameters {
-                activeChoiceReactiveParam(param_name) {
-                    choiceType(param_type)
-                    groovyScript {
-                        script(param_script)
-                        fallbackScript(param_fallback)
+        switch(param_type) {
+            case "SINGLE_SELECT":
+            case  "MULTI_SELECT":
+            case      "CHECKBOX":
+            case         "RADIO":
+                job_item.parameters {
+                    activeChoiceReactiveParam(param_name) {
+                        choiceType(param_type)
+                        groovyScript {
+                            script(param_script)
+                            fallbackScript(param_fallback)
+                        }
                     }
                 }
-            }
-            return
+                break
 
-        case              "TEXT_BOX":
-        case        "FORMATTED_HTML":
-        case "FORMATTED_HIDDEN_HTML":
-        case          "ORDERED_LIST":
-        case        "UNORDERED_LIST":
-            job_item.parameters {
-                activeChoiceReactiveReferenceParam(param_name) {
-                    choiceType(param_type)
-                    groovyScript {
-                        script(param_script)
-                        fallbackScript(param_fallback)
+            case              "TEXT_BOX":
+            case        "FORMATTED_HTML":
+            case "FORMATTED_HIDDEN_HTML":
+            case          "ORDERED_LIST":
+            case        "UNORDERED_LIST":
+                job_item.parameters {
+                    activeChoiceReactiveReferenceParam(param_name) {
+                        choiceType(param_type)
+                        groovyScript {
+                            script(param_script)
+                            fallbackScript(param_fallback)
+                        }
                     }
                 }
-            }
-            return
+                break
+        }
     }
 }
 
