@@ -1,3 +1,10 @@
+void setBuildNumber(String job_new = "", String job_old = "") {
+    def job_old_obj = Jenkins.instance.getItemByFullName(job_old)
+    def job_new_obj = Jenkins.instance.getItemByFullName(job_new)
+    job_new_obj.updateNextBuildNumber(job_old_obj.getNextBuildNumber())
+}
+
+
 void setDirs(List dirs) {
     for(dir_item in dirs) {
         folder(dir_item)
@@ -51,13 +58,18 @@ Map getParamArgs(def str_params = null, def ac_params = null) {
 }
 
 
-void setPipelineJob(String job_name, String pp_script = "", def trigger_args = null, def param_args = null) {
+void setPipelineJob(String work_dir = "", String job_name, String pp_script = "", def trigger_args = null, def param_args = null) {
     def job_item = pipelineJob(job_name)
+    job_item.disabled()
+
+    if(!work_dir) {
+        work_dir = "."
+    }
 
     job_item.definition {
         cps {
             if(pp_script) {
-                script(readFileFromWorkspace(job_name + "/" + pp_script))
+                script(readFileFromWorkspace(work_dir + "/" + job_name + "/" + pp_script))
             } else {
                 script(pp_script)
             }
@@ -72,7 +84,9 @@ void setPipelineJob(String job_name, String pp_script = "", def trigger_args = n
                     genericTrigger {
                         genericVariables {
                             for(gvar_item in trigger_args.gvar_list) {
-                                def(var_val, var_exp) = gvar_item.value
+                                // Sandboxed System Groovy Scripts don't support multiple assignments
+                                def var_val = gvar_item.value[0]
+                                def var_exp = gvar_item.value[1]
 
                                 genericVariable {
                                     key(gvar_item.key)
@@ -107,7 +121,10 @@ void setPipelineJob(String job_name, String pp_script = "", def trigger_args = n
         if(param_args.str_params) {
             job_item.parameters {
                 for(str_item in param_args.str_params) {
-                    def(param_default, param_descr) = str_item.value
+                    // Sandboxed System Groovy Scripts don't support multiple assignments
+                    def param_default = str_item.value[0]
+                    def param_descr   = str_item.value[1]
+
                     stringParam(str_item.key, param_default, param_descr)
                 }
             }
@@ -116,7 +133,10 @@ void setPipelineJob(String job_name, String pp_script = "", def trigger_args = n
         // param_list = [[param_name, param_type, param_script, param_fallback], ...]
         if(param_args.ac_params) {
             for(ac_item in param_args.ac_params) {
-                def(param_type, param_script, param_fallback) = ac_item.value
+                // Sandboxed System Groovy Scripts don't support multiple assignments
+                def param_type     = ac_item.value[0]
+                def param_script   = ac_item.value[1]
+                def param_fallback = ac_item.value[2]
 
                 switch(param_type) {
                     case "SINGLE_SELECT":
@@ -128,13 +148,13 @@ void setPipelineJob(String job_name, String pp_script = "", def trigger_args = n
                                 choiceType(param_type)
                                 groovyScript {
                                     if(param_script) {
-                                        script(readFileFromWorkspace(job_name + "/" + param_script))
+                                        script(readFileFromWorkspace(work_dir + "/" + job_name + "/" + param_script))
                                     } else {
                                         script(param_script)
                                     }
 
                                     if(param_fallback) {
-                                        fallbackScript(readFileFromWorkspace(job_name + "/" + param_fallback))
+                                        fallbackScript(readFileFromWorkspace(work_dir + "/" + job_name + "/" + param_fallback))
                                     } else {
                                         fallbackScript(param_fallback)
                                     }
@@ -153,13 +173,13 @@ void setPipelineJob(String job_name, String pp_script = "", def trigger_args = n
                                 choiceType(param_type)
                                 groovyScript {
                                     if(param_script) {
-                                        script(readFileFromWorkspace(job_name + "/" + param_script))
+                                        script(readFileFromWorkspace(work_dir + "/" + job_name + "/" + param_script))
                                     } else {
                                         script(param_script)
                                     }
 
                                     if(param_fallback) {
-                                        fallbackScript(readFileFromWorkspace(job_name + "/" + param_fallback))
+                                        fallbackScript(readFileFromWorkspace(work_dir + "/" + job_name + "/" + param_fallback))
                                     } else {
                                         fallbackScript(param_fallback)
                                     }
