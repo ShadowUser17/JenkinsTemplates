@@ -223,3 +223,20 @@ def setPipelineJob(String work_dir = "", String job_name, String pp_script = "",
     } // End of params definition
     return job_item
 }
+
+// Return job_item
+def wrapTrigger(def job_item, String schedule = "") {
+    if(schedule) {
+        job_item.properties {
+            pipelineTriggers {
+                triggers {
+                    cron {
+                        spec(schedule)
+                    }
+                }
+            }
+        }
+    }
+
+    return job_item
+}
