@@ -225,13 +225,15 @@ def setPipelineJob(String work_dir = "", String job_name, String pp_script = "",
 }
 
 // Return job_item
-def wrapTrigger(def job_item, String schedule = "") {
+def wrapTrigger(def job_item, String schedule = "", def parameterized = false) {
     if(schedule) {
         job_item.properties {
             pipelineTriggers {
                 triggers {
-                    cron {
-                        spec(schedule)
+                    if(parameterized) {
+                        parameterizedCron { parameterizedSpecification(schedule) }
+                    } else {
+                        cron { spec(schedule) }
                     }
                 }
             }
