@@ -1,13 +1,49 @@
+/*
+Dependency list:
+- Job DSL
+- Authorize Project
+- Active Choices
+- Generic Webhook Trigger
+- Parameterized Scheduler
+*/
+
 void setBuildNumber(String job_new = "", String job_old = "") {
     def job_old_obj = Jenkins.instance.getItemByFullName(job_old)
     def job_new_obj = Jenkins.instance.getItemByFullName(job_new)
     job_new_obj.updateNextBuildNumber(job_old_obj.getNextBuildNumber())
 }
 
-
+// Example: [["dir_name", view_list: [[view_name, view_regex], ...]], ...]
 void setDirs(List dirs) {
     for(dir_item in dirs) {
-        folder(dir_item)
+        if(!dir_item[1]) {
+            folder(dir_item[0])
+
+        } else {
+            def view_list = dir_item[1]
+
+            folder(dir_item[0]) {
+                views {
+                    for(view_item in view_list) {
+                        listView(view_item[0]) {
+                            recurse(true)
+
+                            columns {
+                                status()
+                                name()
+                                lastSuccess()
+                                lastFailure()
+                                lastDuration()
+                            }
+
+                            jobs {
+                                regex(view_item[1])
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
