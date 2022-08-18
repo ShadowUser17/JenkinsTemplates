@@ -7,12 +7,6 @@ Dependency list:
 - Parameterized Scheduler
 */
 
-void setBuildNumber(String job_new = "", String job_old = "") {
-    def job_old_obj = Jenkins.instance.getItemByFullName(job_old)
-    def job_new_obj = Jenkins.instance.getItemByFullName(job_new)
-    job_new_obj.updateNextBuildNumber(job_old_obj.getNextBuildNumber())
-}
-
 // Example: [["dir_name", view_list: [[view_name, view_regex], ...]], ...]
 void setDirs(List dirs) {
     for(dir_item in dirs) {
@@ -36,9 +30,13 @@ void setDirs(List dirs) {
                                 lastDuration()
                             }
 
-                            jobs {
-                                regex(view_item[1])
+                            configure { view ->
+                                view / columns << 'hudson.plugins.cobertura.CoverageColumn' {
+                                    type('line')
+                                }
                             }
+
+                            jobs { regex(view_item[1]) }
                         }
                     }
                 }
@@ -47,32 +45,88 @@ void setDirs(List dirs) {
     }
 }
 
-// return ["gvar_list": gvar_default, "token_str": token_str, "regex_text": regex_text, "regex_expr": regex_expr]
-Map getTriggerArgs(def token_str = "", def regex_text = "", def regex_expr = "", def gvar_list = null) {
-    def gvar_default = [
-        "BRANCH":          ["\$.ref",             "JSONPath"],
-        "REPOSITORY":      ["\$.repository.name", "JSONPath"],
-        "GIT_AUTHOR":      ["\$.pusher.name",     "JSONPath"],
-        "GIT_HEAD_COMMIT": ["\$.head_commit.url", "JSONPath"]
-    ]
+/*
+webhook_args = [token_str, regex_text, regex_expr, gvar_list = [[key, val], ...]]
+cron_args = [schedule, parameterized]
+*/
+def setPipelineTriggers(def job_item, def webhook_args = null, def cron_args = null) {
+    job_item.properties {
+        pipelineTriggers {
+            triggers {
+                if(webhook_args) {
+                    def gvar_default = [
+                        "DELETED":         ["\$.deleted",         "JSONPath"],
+                        "BRANCH":          ["\$.ref",             "JSONPath"],
+                        "REPOSITORY":      ["\$.repository.name", "JSONPath"],
+                        "GIT_AUTHOR":      ["\$.pusher.name",     "JSONPath"],
+                        "GIT_HEAD_COMMIT": ["\$.head_commit.url", "JSONPath"]
+                    ]
 
-    if(gvar_list) {
-        for(gvar_item in gvar_list) {
-            gvar_default[gvar_item.key] = gvar_item.value
-        }
-    }
+                    def token_str  = webhook_args[0]
+                    def regex_text = webhook_args[1]
+                    def regex_expr = webhook_args[2]
+                    def gvar_list  = webhook_args[3]
 
-    def triggerArgs = [
-        "gvar_list":  gvar_default,
-        "token_str":  token_str,
-        "regex_text": regex_text,
-        "regex_expr": regex_expr
-    ]
+                    if(gvar_list) {
+                        for(gvar_item in gvar_list) {
+                            gvar_default[gvar_item.key] = gvar_item.value
+                        }
+                    }
 
-    return triggerArgs
+                    genericTrigger {
+                        genericVariables {
+                            for(gvar_item in gvar_default) {
+                                // Sandboxed System Groovy Scripts don't support multiple assignments
+                                def var_val = gvar_item.value[0]
+                                def var_exp = gvar_item.value[1]
+
+                                genericVariable {
+                                    key(gvar_item.key)
+                                    value(var_val)
+
+                                    // Optional, defaults to JSONPath
+                                    if(!var_exp) {
+                                        expressionType("JSONPath")
+                                    }
+
+                                    // Optional, defaults to empty string
+                                    regexpFilter("")
+                                    // Optional, defaults to empty string
+                                    defaultValue("")
+                                } // End of genericVariable
+                            } // End of for
+                        } // End of genericVariables
+
+                        token(token_str)
+                        tokenCredentialId("")
+                        printContributedVariables(true)
+                        printPostContent(true)
+                        silentResponse(false)
+                        regexpFilterText(regex_text)
+                        regexpFilterExpression(regex_expr)
+
+                    } // End of genericTrigger
+                } // End of trigger definition
+
+                if(cron_args) {
+                    def schedule      = cron_args[0]
+                    def parameterized = cron_args[1]
+
+                    if(parameterized) {
+                        parameterizedCron { parameterizedSpecification(schedule) }
+                    } else {
+                        cron { spec(schedule) }
+                    }
+                } // End of cron definition
+
+            } // End of triggers
+        } // End of pipelineTriggers
+    } // End of properties
+
+    return job_item
 }
 
-// return ["str_params": str_params_default, "ac_params": ac_params_default]
+// return ["str_params": str_params_default, "ch_params": ch_params_default, "ac_params": ac_params_default]
 Map getParamArgs(def str_params = null, def ch_params = null, def ac_params = null) {
     def str_params_default = [:]
 
@@ -108,18 +162,18 @@ Map getParamArgs(def str_params = null, def ch_params = null, def ac_params = nu
 }
 
 
-def setPipelineJob(String work_dir = "", String job_name, String pp_script = "", def trigger_args = null, def param_args = null) {
+def setPipelineJob(String work_dir = ".", String job_name, String pp_script = "", def param_args = null, def concurrent = null) {
     def job_item = pipelineJob(job_name) {
       logRotator {
-          artifactNumToKeep(100)
-          numToKeep(200)
+          artifactNumToKeep(30)
+          numToKeep(30)
       }
     }
 
-    // job_item.disabled()
-
-    if(!work_dir) {
-        work_dir = "."
+    if(concurrent) {
+        job_item.throttleConcurrentBuilds {
+            maxTotal(concurrent)
+        }
     }
 
     job_item.definition {
@@ -132,45 +186,6 @@ def setPipelineJob(String work_dir = "", String job_name, String pp_script = "",
             sandbox()
         }
     } // End of base definition
-
-    if(trigger_args) {
-        job_item.properties {
-            pipelineTriggers {
-                triggers {
-                    genericTrigger {
-                        genericVariables {
-                            for(gvar_item in trigger_args.gvar_list) {
-                                // Sandboxed System Groovy Scripts don't support multiple assignments
-                                def var_val = gvar_item.value[0]
-                                def var_exp = gvar_item.value[1]
-
-                                genericVariable {
-                                    key(gvar_item.key)
-                                    value(var_val)
-                                    if(!var_exp) {
-                                        // Optional, defaults to JSONPath
-                                        expressionType("JSONPath")
-                                    }
-                                    // Optional, defaults to empty string
-                                    regexpFilter("")
-                                    // Optional, defaults to empty string
-                                    defaultValue("")
-                                } // End of genericVariable
-                            } // End of for
-                        }
-
-                        token(trigger_args.token_str)
-                        tokenCredentialId("")
-                        printContributedVariables(true)
-                        printPostContent(true)
-                        silentResponse(false)
-                        regexpFilterText(trigger_args.regex_text)
-                        regexpFilterExpression(trigger_args.regex_expr)
-                    } // End of genericTrigger
-                } // End of triggers
-            } // End of pipelineTriggers
-        }
-    } // End of trigger definition
 
     if(param_args) {
         // param_list = [[param_name, param_default, param_descr], ...]
@@ -257,24 +272,6 @@ def setPipelineJob(String work_dir = "", String job_name, String pp_script = "",
             } // End of for
         } // End of AC definition
     } // End of params definition
-    return job_item
-}
-
-// Return job_item
-def wrapTrigger(def job_item, String schedule = "", def parameterized = false) {
-    if(schedule) {
-        job_item.properties {
-            pipelineTriggers {
-                triggers {
-                    if(parameterized) {
-                        parameterizedCron { parameterizedSpecification(schedule) }
-                    } else {
-                        cron { spec(schedule) }
-                    }
-                }
-            }
-        }
-    }
 
     return job_item
 }
