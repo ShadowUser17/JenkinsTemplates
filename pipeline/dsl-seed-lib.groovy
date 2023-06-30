@@ -1,10 +1,10 @@
 /*
 Dependency list:
-- Job DSL
-- Authorize Project
-- Active Choices
-- Generic Webhook Trigger
-- Parameterized Scheduler
+- Job DSL: https://plugins.jenkins.io/job-dsl/
+- Authorize Project: https://plugins.jenkins.io/authorize-project/
+- Active Choices: https://plugins.jenkins.io/uno-choice/
+- Generic Webhook Trigger: https://plugins.jenkins.io/generic-webhook-trigger/
+- Parameterized Scheduler: https://plugins.jenkins.io/parameterized-scheduler/
 */
 
 void setBuildNumber(String job_new = "", String job_old = "") {
